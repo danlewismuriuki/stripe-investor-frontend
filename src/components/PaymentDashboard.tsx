@@ -1,19 +1,39 @@
-import React, { useState } from 'react';
-import { Wallet, SendHorizontal, CreditCard, Check as BankCheck } from 'lucide-react';
-import { usePayments } from '../hooks/usePayments';
+import React, { useState } from "react";
+import {
+  Wallet,
+  SendHorizontal,
+  CreditCard,
+  Check as BankCheck,
+} from "lucide-react";
+import { usePayments } from "../hooks/usePayments";
 
 export function PaymentDashboard() {
-  const { isLoading, error, initializePayment, createTransfer, requestPayout } = usePayments();
-  const [amount, setAmount] = useState('');
-  const [currency, setCurrency] = useState('USD');
+  const { isLoading, error, initializePayment, createTransfer, requestPayout } =
+    usePayments();
+  const [amount, setAmount] = useState("");
+  const [currency, setCurrency] = useState("USD");
+
+  // const handleDeposit = async () => {
+  //   try {
+  //     const clientSecret = await initializePayment(Number(amount) * 100, currency);
+  //     // TODO: Initialize Stripe Elements and handle payment
+  //     console.log('Payment initialized:', clientSecret);
+  //   } catch (err) {
+  //     console.error('Deposit failed:', err);
+  //   }
+  // };
 
   const handleDeposit = async () => {
     try {
-      const clientSecret = await initializePayment(Number(amount) * 100, currency);
-      // TODO: Initialize Stripe Elements and handle payment
-      console.log('Payment initialized:', clientSecret);
+      const paymentMethodId = "your-payment-method-id"; // Replace with actual payment method ID
+      const clientSecret = await initializePayment(
+        Number(amount) * 100,
+        currency,
+        paymentMethodId
+      );
+      console.log("Payment initialized:", clientSecret);
     } catch (err) {
-      console.error('Deposit failed:', err);
+      console.error("Deposit failed:", err);
     }
   };
 
@@ -22,10 +42,10 @@ export function PaymentDashboard() {
       await createTransfer({
         amount: Number(amount) * 100,
         currency,
-        destinationId: 'DESTINATION_ACCOUNT_ID', // This should be dynamic
+        destinationId: "DESTINATION_ACCOUNT_ID", // This should be dynamic
       });
     } catch (err) {
-      console.error('Transfer failed:', err);
+      console.error("Transfer failed:", err);
     }
   };
 
@@ -34,17 +54,17 @@ export function PaymentDashboard() {
       await requestPayout({
         amount: Number(amount) * 100,
         currency,
-        bankAccountId: 'BANK_ACCOUNT_ID', // This should be dynamic
+        bankAccountId: "BANK_ACCOUNT_ID", // This should be dynamic
       });
     } catch (err) {
-      console.error('Payout failed:', err);
+      console.error("Payout failed:", err);
     }
   };
 
   return (
     <div className="max-w-4xl mx-auto p-6">
       <h1 className="text-3xl font-bold mb-8">Payment Dashboard</h1>
-      
+
       {error && (
         <div className="bg-red-50 text-red-600 p-4 rounded-lg mb-6">
           {error}
@@ -59,7 +79,9 @@ export function PaymentDashboard() {
           </div>
           <div className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700">Amount</label>
+              <label className="block text-sm font-medium text-gray-700">
+                Amount
+              </label>
               <div className="mt-1 relative rounded-md shadow-sm">
                 <input
                   type="number"
@@ -86,7 +108,7 @@ export function PaymentDashboard() {
               disabled={isLoading}
               className="w-full bg-indigo-600 text-white py-2 px-4 rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 disabled:opacity-50"
             >
-              {isLoading ? 'Processing...' : 'Deposit'}
+              {isLoading ? "Processing..." : "Deposit"}
             </button>
           </div>
         </div>
@@ -101,7 +123,7 @@ export function PaymentDashboard() {
             disabled={isLoading}
             className="w-full bg-green-600 text-white py-2 px-4 rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 disabled:opacity-50"
           >
-            {isLoading ? 'Processing...' : 'Send Payment'}
+            {isLoading ? "Processing..." : "Send Payment"}
           </button>
         </div>
 
@@ -115,7 +137,7 @@ export function PaymentDashboard() {
             disabled={isLoading}
             className="w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50"
           >
-            {isLoading ? 'Processing...' : 'Withdraw to Bank'}
+            {isLoading ? "Processing..." : "Withdraw to Bank"}
           </button>
         </div>
       </div>
