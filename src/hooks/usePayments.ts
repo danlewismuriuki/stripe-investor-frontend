@@ -138,12 +138,27 @@ export function usePayments() {
   // };
 
 
-  const initializePayment = async (amount: number, currency: string, paymentMethodId: string) => {
+  // const initializePayment = async (amount: number, currency: string, paymentMethodId: string) => {
+  //   try {
+  //     const response = await fetch(`${BASE_URL}/fund-wallet`, {
+  //       method: "POST",
+  //       headers: { "Content-Type": "application/json" },
+  //       body: JSON.stringify({ amount, currency, paymentMethodId }),
+  //     });
+  //     const data = await response.json();
+  //     return data.clientSecret;
+  //   } catch (err) {
+  //     throw new Error("Failed to initialize payment");
+  //   }
+  // };
+
+
+  const initializePayment = async (amount: number, currency: string, customerId: string) => {
     try {
       const response = await fetch(`${BASE_URL}/fund-wallet`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ amount, currency, paymentMethodId }),
+        body: JSON.stringify({ amount, currency, customerId }),
       });
       const data = await response.json();
       return data.clientSecret;
