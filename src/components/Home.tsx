@@ -14,21 +14,29 @@ function Home() {
 
     try {
       // Step 1: Create a Connected Account
-      const accountResponse = await fetch("/api/create-account", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email }),
-      });
+      //   const accountResponse = await fetch("/api/create-account", {
+      const accountResponse = await fetch(
+        "https://stripe-investor-wallet.onrender.com/stripe/create-account",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email }),
+        }
+      );
 
       const accountData = await accountResponse.json();
       const accountId = accountData.accountId;
 
       // Step 2: Generate Onboarding Link
-      const linkResponse = await fetch("/api/generate-account-link", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ accountId }),
-      });
+      //   const linkResponse = await fetch("/api/generate-account-link", {
+      const linkResponse = await fetch(
+        "https://stripe-investor-wallet.onrender.com/stripe/generate-account-link",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ accountId }),
+        }
+      );
 
       const linkData = await linkResponse.json();
 
@@ -46,7 +54,10 @@ function Home() {
       <h1 className="text-3xl mb-6">Welcome to the App</h1>
       <form onSubmit={handleSubmit} className="max-w-md mx-auto">
         <div className="mb-4">
-          <label htmlFor="email" className="block text-sm font-medium text-gray-700">
+          <label
+            htmlFor="email"
+            className="block text-sm font-medium text-gray-700"
+          >
             Email
           </label>
           <input
