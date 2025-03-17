@@ -99,6 +99,7 @@ export function PaymentDashboard() {
                     <option>USD</option>
                     <option>EUR</option>
                     <option>GBP</option>
+                    <option>KES</option>
                   </select>
                 </div>
               </div>
