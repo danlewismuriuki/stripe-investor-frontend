@@ -118,22 +118,37 @@ export function usePayments() {
     }
   };
 
+  // const initializePayment = async (amount: number, currency: string, paymentMethodId: string) => {
+  //   try {
+  //     setIsLoading(true);
+  //     setError(null);
+  //     const response = await fetch(`${BASE_URL}/fund-wallet`, {
+  //       method: 'POST',
+  //       headers: { 'Content-Type': 'application/json' },
+  //       body: JSON.stringify({ amount, currency, paymentMethodId }),
+  //     });
+  //     const data = await response.json();
+  //     return data.clientSecret;
+  //   } catch (err) {
+  //     setError('Failed to initialize payment');
+  //     throw err;
+  //   } finally {
+  //     setIsLoading(false);
+  //   }
+  // };
+
+
   const initializePayment = async (amount: number, currency: string, paymentMethodId: string) => {
     try {
-      setIsLoading(true);
-      setError(null);
       const response = await fetch(`${BASE_URL}/fund-wallet`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ amount, currency, paymentMethodId }),
       });
       const data = await response.json();
       return data.clientSecret;
     } catch (err) {
-      setError('Failed to initialize payment');
-      throw err;
-    } finally {
-      setIsLoading(false);
+      throw new Error("Failed to initialize payment");
     }
   };
 
