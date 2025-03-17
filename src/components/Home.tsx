@@ -30,7 +30,7 @@ function Home() {
       // Step 2: Generate Onboarding Link
       //   const linkResponse = await fetch("/api/generate-account-link", {
       const linkResponse = await fetch(
-        "https://stripe-investor-wallet.onrender.com/stripe/generate-account-link",
+        "https://stripe-investor-wallet.onrender.com/stripe/account-link",
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
