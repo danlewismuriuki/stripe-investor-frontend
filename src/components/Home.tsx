@@ -14,7 +14,6 @@ function Home() {
 
     try {
       // Step 1: Create a Connected Account
-      //   const accountResponse = await fetch("/api/create-account", {
       const accountResponse = await fetch(
         "https://stripe-investor-wallet.onrender.com/stripe/create-account",
         {
@@ -28,7 +27,6 @@ function Home() {
       const accountId = accountData.accountId;
 
       // Step 2: Generate Onboarding Link
-      //   const linkResponse = await fetch("/api/generate-account-link", {
       const linkResponse = await fetch(
         "https://stripe-investor-wallet.onrender.com/stripe/account-link",
         {
