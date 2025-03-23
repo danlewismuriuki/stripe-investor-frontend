@@ -217,11 +217,9 @@ export function PaymentDashboard() {
 
     async function fetchPaymentMethods() {
       try {
-        // const res = await fetch(`/api/stripe/connected-payment-methods/${connectedAccountId}`);
         const res = await fetch(
-          `https://stripe-investor-wallet.onrender.com/stripe/api/stripe/connected-payment-methods/${connectedAccountId}`
+          `https://stripe-investor-wallet.onrender.com/stripe/connected-payment-methods/${connectedAccountId}`
         );
-
         const data = await res.json();
         setPaymentMethods(data);
       } catch (error) {
