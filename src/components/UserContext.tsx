@@ -3,8 +3,9 @@ import React, { createContext, useContext, useEffect, useState } from "react";
 // Define the shape of the user data
 interface User {
   customerId: string;
-  // Add other user properties as needed
+  email?: string; // Mark optional if it may be undefined
   connectedAccountId?: string;
+  setConnectedAccountId?: (id: string) => void;
 }
 
 // Create the context
