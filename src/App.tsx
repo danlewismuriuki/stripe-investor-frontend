@@ -58,6 +58,12 @@ import { UserProvider } from "../src/components/UserContext"; // Import the User
 import { PaymentDashboard } from "./components/PaymentDashboard";
 import Home from "./components/Home"; // Import the Home component
 import Reauth from "./components/Reauth"; // Import the Reauth component
+import { Elements } from "@stripe/react-stripe-js";
+import { loadStripe } from "@stripe/stripe-js";
+
+const stripePromise = loadStripe(
+  "pk_test_51QyysURwCZkMupwg2slyTLndKhtucw9xupDqdIwRmyikUxEVl8DSTVLALJZAmMumrlKmcUAwM4Wdb3xY8DQl23PQ00bqr2fakf"
+); // Use your actual Stripe public key
 
 function App() {
   return (
@@ -70,7 +76,14 @@ function App() {
             {/* Default route */}
             <Route path="/" element={<Home />} />
             {/* Payment Dashboard route */}
-            <Route path="/paymentdashboard" element={<PaymentDashboard />} />
+            <Route
+              path="/paymentdashboard"
+              element={
+                <Elements stripe={stripePromise}>
+                  <PaymentDashboard />
+                </Elements>
+              }
+            />
             {/* Reauth route */}
             <Route path="/reauth" element={<Reauth />} />
           </Routes>
