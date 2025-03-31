@@ -146,41 +146,130 @@ function Home() {
   const { refreshUser } = useUser();
   const navigate = useNavigate();
 
+  // const handleLiveOnboarding = async (email: string) => {
+  //   // 1. Create Stripe Connected Account
+  //   const accountResponse = await fetch(
+  //     `${import.meta.env.VITE_API_URL}/stripe/create-account`,
+  //     {
+  //       method: "POST",
+  //       headers: { "Content-Type": "application/json" },
+  //       body: JSON.stringify({ email }),
+  //     }
+  //   );
+
+  //   if (!accountResponse.ok) {
+  //     const errorData = await accountResponse.json();
+  //     throw new Error(errorData.message || "Account creation failed");
+  //   }
+
+  //   const { accountId } = await accountResponse.json();
+
+  //   // 2. Generate Onboarding Link
+  //   const onboardingResponse = await fetch(
+  //     `${import.meta.env.VITE_API_URL}/stripe/onboarding-link`,
+  //     {
+  //       method: "POST",
+  //       headers: { "Content-Type": "application/json" },
+  //       body: JSON.stringify({ accountId }),
+  //     }
+  //   );
+
+  //   if (!onboardingResponse.ok) {
+  //     throw new Error("Failed to generate onboarding link");
+  //   }
+
+  //   const { url } = await onboardingResponse.json();
+  //   return url;
+  // };
+
   const handleLiveOnboarding = async (email: string) => {
-    // 1. Create Stripe Connected Account
-    const accountResponse = await fetch(
-      `${import.meta.env.VITE_API_URL}/stripe/create-account`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email }),
-      }
-    );
-
-    if (!accountResponse.ok) {
-      const errorData = await accountResponse.json();
-      throw new Error(errorData.message || "Account creation failed");
+    // Verify environment variables
+    if (!import.meta.env.VITE_API_URL) {
+      throw new Error("Backend API URL is not configured");
     }
 
-    const { accountId } = await accountResponse.json();
+    try {
+      // 1. Create Stripe account - production endpoint
+      const accountResponse = await fetch(
+        `${import.meta.env.VITE_API_URL}/stripe/create-account`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Accept: "application/json",
+          },
+          body: JSON.stringify({ email }),
+        }
+      );
 
-    // 2. Generate Onboarding Link
-    const onboardingResponse = await fetch(
-      `${import.meta.env.VITE_API_URL}/stripe/onboarding-link`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ accountId }),
+      // Handle non-2xx responses
+      if (!accountResponse.ok) {
+        const error = await accountResponse.json().catch(() => ({}));
+        throw new Error(
+          error.message || `Account creation failed (${accountResponse.status})`
+        );
       }
-    );
 
-    if (!onboardingResponse.ok) {
-      throw new Error("Failed to generate onboarding link");
+      const { accountId } = await accountResponse.json();
+      if (!accountId) throw new Error("Missing accountId in response");
+
+      // 2. Generate onboarding link
+      const onboardingResponse = await fetch(
+        `${import.meta.env.VITE_API_URL}/stripe/onboarding-link`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Accept: "application/json",
+          },
+          body: JSON.stringify({ accountId }),
+        }
+      );
+
+      if (!onboardingResponse.ok) {
+        const error = await onboardingResponse.json().catch(() => ({}));
+        throw new Error(
+          error.message ||
+            `Onboarding link failed (${onboardingResponse.status})`
+        );
+      }
+
+      const { url } = await onboardingResponse.json();
+      if (!url) throw new Error("Missing onboarding URL in response");
+
+      // 3. Redirect to Stripe
+      window.location.href = url;
+    } catch (error) {
+      console.error("Onboarding error:", error);
+      throw new Error(
+        error instanceof Error ? error.message : "Onboarding process failed"
+      );
     }
-
-    const { url } = await onboardingResponse.json();
-    return url;
   };
+
+  // const handleSubmit = async (e: React.FormEvent) => {
+  //   e.preventDefault();
+  //   setIsLoading(true);
+  //   setError(null);
+
+  //   try {
+  //     if (isMockMode) {
+  //       await new Promise((resolve) => setTimeout(resolve, 1000));
+  //       refreshUser();
+  //       navigate("/paymentdashboard");
+  //       return;
+  //     }
+
+  //     // PRODUCTION FLOW
+  //     const onboardingUrl = await handleLiveOnboarding(email);
+  //     window.location.href = onboardingUrl;
+  //   } catch (err) {
+  //     setError(err instanceof Error ? err.message : "Onboarding failed");
+  //     console.error("Onboarding error:", err);
+  //   } finally {
+  //     setIsLoading(false);
+  //   }
+  // };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -188,19 +277,22 @@ function Home() {
     setError(null);
 
     try {
-      if (isMockMode) {
+      if (import.meta.env.VITE_MOCK_MODE === "true") {
+        // Mock mode handling
         await new Promise((resolve) => setTimeout(resolve, 1000));
         refreshUser();
         navigate("/paymentdashboard");
         return;
       }
 
-      // PRODUCTION FLOW
-      const onboardingUrl = await handleLiveOnboarding(email);
-      window.location.href = onboardingUrl;
+      // Production flow
+      await handleLiveOnboarding(email);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Onboarding failed");
-      console.error("Onboarding error:", err);
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Onboarding failed. Please try again."
+      );
     } finally {
       setIsLoading(false);
     }
