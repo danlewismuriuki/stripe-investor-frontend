@@ -1,14 +1,14 @@
 import { useState } from 'react';
 import type { PaymentTransfer, PayoutRequest } from '../lib/types';
 
-const BASE_URL = 'https://stripe-investor-wallet.onrender.com/stripe';
+const BASE_URL = 'https://stripe-payment-gateway-rb8y.onrender.com/stripe';
 
 interface UsePaymentsReturn {
   isLoading: boolean;
   error: string | null;
   isMockMode: boolean;
   generateOnboardingLink: (accountId: string) => Promise<string>;
-  initializePayment: (amount: number, currency: string, customerId: string) => Promise<string>;
+  initializePayment: (amount: number, currency: string, email: string) => Promise<string>;
   createTransfer: (transfer: PaymentTransfer) => Promise<any>;
   requestPayout: (payout: PayoutRequest) => Promise<any>;
 }
@@ -67,19 +67,23 @@ export function usePayments(): UsePaymentsReturn {
     }
   };
 
-  const initializePayment = async (amount: number, currency: string, customerId: string) => {
-    if (isMockMode) return mockInitializePayment();
+  const initializePayment = async (amount: number, currency: string, email: string) => {
+    console.log('[DEBUG] Using BASE_URL:', BASE_URL); // Add this line
+    console.log('[DEBUG] Function called with:', { amount, currency, email });
+    const payload = { amount, currency, email };
+    console.log('[DEBUG] Sending payload:', payload);
     
     try {
-      const response = await fetch(`${BASE_URL}/fund-wallet`, {
+      const response = await fetch(`https://stripe-payment-gateway-rb8y.onrender.com/stripe/fund-wallet`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ amount, currency, customerId }),
+        body: JSON.stringify(payload),
       });
-      const data = await response.json();
-      return data.clientSecret;
+      console.log('[DEBUG] Response:', await response.clone().json());
+      return response.json();
     } catch (err) {
-      throw new Error("Failed to initialize payment");
+      console.error('[DEBUG] Error:', err);
+      throw err;
     }
   };
 
