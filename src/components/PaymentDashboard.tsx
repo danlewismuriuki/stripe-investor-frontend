@@ -888,6 +888,11 @@ import {
   FaSpinner,
 } from "react-icons/fa";
 
+// Move stripePromise outside the component to prevent recreation
+const stripePromise = loadStripe(
+  import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY || ""
+);
+
 interface PayoutMethod {
   id: string;
   bank_name?: string;
@@ -910,9 +915,6 @@ interface PaymentMethod {
 
 export function PaymentDashboard() {
   const { user, isMockMode } = useUser();
-  const stripePromise = loadStripe(
-    import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY || ""
-  );
   const stripe = useStripe();
   const elements = useElements();
 
@@ -950,7 +952,7 @@ export function PaymentDashboard() {
     initializeStripe();
   }, []);
 
-  // Initialize auth token from URL or localStorage
+  // Initialize auth token
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const urlToken = params.get("token");
@@ -968,11 +970,9 @@ export function PaymentDashboard() {
     }
   }, [isMockMode]);
 
-  // Enhanced error handler
+  // Error handler
   const getErrorMessage = (error: unknown): string => {
-    if (error instanceof Error) {
-      return error.message;
-    }
+    if (error instanceof Error) return error.message;
     if (typeof error === "object" && error !== null && "message" in error) {
       return String(error.message);
     }
@@ -1004,18 +1004,11 @@ export function PaymentDashboard() {
 
       const response = await fetch(
         `${import.meta.env.VITE_API_URL}/stripe/payment-methods`,
-        {
-          headers: {
-            Authorization: `Bearer ${authToken}`,
-          },
-        }
+        { headers: { Authorization: `Bearer ${authToken}` } }
       );
 
-      if (!response.ok) {
-        throw new Error(await response.text());
-      }
-      const methods = await response.json();
-      setPaymentMethods(methods);
+      if (!response.ok) throw new Error(await response.text());
+      setPaymentMethods(await response.json());
     } catch (error) {
       console.error("Payment methods error:", error);
       setTransactionStatus(getErrorMessage(error));
@@ -1047,16 +1040,10 @@ export function PaymentDashboard() {
 
       const response = await fetch(
         `${import.meta.env.VITE_API_URL}/stripe/payout-methods`,
-        {
-          headers: {
-            Authorization: `Bearer ${authToken}`,
-          },
-        }
+        { headers: { Authorization: `Bearer ${authToken}` } }
       );
 
-      if (!response.ok) {
-        throw new Error(await response.text());
-      }
+      if (!response.ok) throw new Error(await response.text());
       const { methods, defaultMethod } = await response.json();
       setPayoutMethods(methods);
       if (defaultMethod) setSelectedPayoutMethod(defaultMethod);
@@ -1069,7 +1056,7 @@ export function PaymentDashboard() {
     }
   };
 
-  // Load all methods when authToken changes
+  // Load methods when authToken changes
   useEffect(() => {
     loadPaymentMethods();
     loadPayoutMethods();
@@ -1103,22 +1090,12 @@ export function PaymentDashboard() {
 
       const response = await fetch(
         `${import.meta.env.VITE_API_URL}/stripe/setup-intent`,
-        {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${authToken}`,
-          },
-        }
+        { method: "POST", headers: { Authorization: `Bearer ${authToken}` } }
       );
 
-      if (!response.ok) {
-        throw new Error(await response.text());
-      }
+      if (!response.ok) throw new Error(await response.text());
       const { clientSecret } = await response.json();
-
-      if (!clientSecret) {
-        throw new Error("No client secret returned");
-      }
+      if (!clientSecret) throw new Error("No client secret returned");
 
       setClientSecret(clientSecret);
       setShowCardForm(true);
@@ -1137,7 +1114,6 @@ export function PaymentDashboard() {
     setTransactionStatus(null);
     setIsProcessing(true);
 
-    // Basic validation
     if (!amount || Number(amount) <= 0) {
       setTransactionStatus("Please enter a valid amount");
       setIsProcessing(false);
@@ -1147,9 +1123,9 @@ export function PaymentDashboard() {
     try {
       if (activeTab === "deposit") {
         if (showCardForm) {
-          // Handle new card payment
-          if (!stripe || !elements) {
-            throw new Error("Payment system not ready. Please try again.");
+          // Explicit check for element readiness
+          if (!stripe || !elements || !isPaymentElementReady) {
+            throw new Error("Payment form is not ready yet. Please wait.");
           }
 
           const { error: submitError } = await elements.submit();
@@ -1158,9 +1134,7 @@ export function PaymentDashboard() {
           const { error: stripeError, setupIntent } = await stripe.confirmSetup(
             {
               elements,
-              confirmParams: {
-                return_url: window.location.origin,
-              },
+              confirmParams: { return_url: window.location.origin },
               redirect: "if_required",
             }
           );
@@ -1170,7 +1144,6 @@ export function PaymentDashboard() {
             throw new Error("Payment method setup failed");
           }
 
-          // In mock mode, skip API call
           if (isMockMode) {
             setTransactionStatus("Mock payment method added successfully!");
             setShowCardForm(false);
@@ -1179,7 +1152,6 @@ export function PaymentDashboard() {
             return;
           }
 
-          // Attach the payment method
           const attachResponse = await fetch(
             `${import.meta.env.VITE_API_URL}/stripe/attach-payment-method`,
             {
@@ -1194,16 +1166,13 @@ export function PaymentDashboard() {
             }
           );
 
-          if (!attachResponse.ok) {
-            throw new Error(await attachResponse.text());
-          }
+          if (!attachResponse.ok) throw new Error(await attachResponse.text());
 
           setTransactionStatus("Payment method added successfully!");
           setShowCardForm(false);
           setClientSecret(null);
           await loadPaymentMethods();
         } else {
-          // Handle payment with saved method
           if (!selectedPaymentMethod) {
             throw new Error("Please select a payment method");
           }
@@ -1232,16 +1201,12 @@ export function PaymentDashboard() {
           );
 
           const data = await response.json();
-          if (!response.ok) {
-            throw new Error(data.message || "Payment failed");
-          }
+          if (!response.ok) throw new Error(data.message || "Payment failed");
 
           if (data.requiresAction && stripe) {
             const { error: confirmationError } = await stripe.confirmPayment({
               clientSecret: data.clientSecret,
-              confirmParams: {
-                return_url: window.location.origin,
-              },
+              confirmParams: { return_url: window.location.origin },
             });
             if (confirmationError) throw confirmationError;
           }
@@ -1250,7 +1215,6 @@ export function PaymentDashboard() {
           await loadPaymentMethods();
         }
       } else {
-        // Handle withdrawal
         if (!selectedPayoutMethod) {
           throw new Error("Please select a payout method");
         }
@@ -1278,9 +1242,7 @@ export function PaymentDashboard() {
         );
 
         const result = await response.json();
-        if (!response.ok) {
-          throw new Error(result.message || "Payout failed");
-        }
+        if (!response.ok) throw new Error(result.message || "Payout failed");
 
         setTransactionStatus(
           `Payout scheduled! Funds will arrive by ${new Date(
@@ -1317,15 +1279,11 @@ export function PaymentDashboard() {
             Authorization: `Bearer ${authToken}`,
             "Content-Type": "application/json",
           },
-          body: JSON.stringify({
-            paymentMethodId: methodId,
-          }),
+          body: JSON.stringify({ paymentMethodId: methodId }),
         }
       );
 
-      if (!response.ok) {
-        throw new Error(await response.text());
-      }
+      if (!response.ok) throw new Error(await response.text());
 
       setTransactionStatus("Payment method removed");
       await loadPaymentMethods();
@@ -1361,15 +1319,11 @@ export function PaymentDashboard() {
             Authorization: `Bearer ${authToken}`,
             "Content-Type": "application/json",
           },
-          body: JSON.stringify({
-            paymentMethodId: methodId,
-          }),
+          body: JSON.stringify({ paymentMethodId: methodId }),
         }
       );
 
-      if (!response.ok) {
-        throw new Error(await response.text());
-      }
+      if (!response.ok) throw new Error(await response.text());
 
       setTransactionStatus("Default payment method updated");
       await loadPaymentMethods();
@@ -1395,7 +1349,6 @@ export function PaymentDashboard() {
 
   return (
     <div className="min-h-screen bg-gray-50 p-4 md:p-8">
-      {/* Mock Mode Indicator */}
       {isMockMode && (
         <div className="bg-yellow-100 text-yellow-800 p-3 rounded-lg mb-6 flex items-center">
           <span className="font-medium">Demo Mode:</span>
@@ -1403,9 +1356,7 @@ export function PaymentDashboard() {
         </div>
       )}
 
-      {/* Main Card */}
       <div className="max-w-2xl mx-auto bg-white rounded-xl shadow-md overflow-hidden">
-        {/* Header */}
         <div className="bg-indigo-600 p-6 text-white">
           <div className="flex justify-between items-center">
             <div>
@@ -1421,7 +1372,6 @@ export function PaymentDashboard() {
           </div>
         </div>
 
-        {/* Tabs */}
         <div className="flex border-b">
           <button
             onClick={() => {
@@ -1453,10 +1403,8 @@ export function PaymentDashboard() {
           </button>
         </div>
 
-        {/* Form */}
         <div className="p-6">
           <form onSubmit={handlePayment}>
-            {/* Amount Input */}
             <div className="mb-6">
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Amount
@@ -1586,23 +1534,14 @@ export function PaymentDashboard() {
                     <div className="p-4 border border-gray-300 rounded-lg">
                       <Elements
                         stripe={stripePromise}
-                        options={{
-                          clientSecret,
-                          appearance: {
-                            theme: "stripe",
-                          },
-                        }}
+                        options={{ clientSecret }}
+                        key={clientSecret}
                       >
                         <PaymentElement
-                          options={{
-                            layout: "tabs",
-                            fields: {
-                              billingDetails: {
-                                email: "never",
-                              },
-                            },
+                          onReady={() => {
+                            setIsPaymentElementReady(true);
+                            console.log("PaymentElement ready!");
                           }}
-                          onReady={() => setIsPaymentElementReady(true)}
                         />
                       </Elements>
                     </div>
