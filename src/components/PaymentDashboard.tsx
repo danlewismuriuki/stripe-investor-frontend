@@ -445,11 +445,6 @@ interface PaymentMethod {
   };
 }
 
-interface PayoutRequest {
-  token: string;
-  amount: number;
-}
-
 export function PaymentDashboard() {
   const { user, isMockMode } = useUser();
   const { isLoading, error, initializePayment, requestPayout } = usePayments();
@@ -464,16 +459,32 @@ export function PaymentDashboard() {
   const [transactionStatus, setTransactionStatus] = useState<string | null>(
     null
   );
+  const [authToken, setAuthToken] = useState<string | null>(null);
   const [payoutMethods, setPayoutMethods] = useState<PayoutMethod[]>([]);
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([]);
   const [selectedPayoutMethod, setSelectedPayoutMethod] = useState("");
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState("");
 
+  // Initialize auth token
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const urlToken = params.get("token");
+    const storedToken = localStorage.getItem("stripeAuthToken");
+
+    const token = urlToken || storedToken;
+    if (token) {
+      setAuthToken(token);
+      if (urlToken) {
+        localStorage.setItem("stripeAuthToken", token);
+        window.history.replaceState({}, "", window.location.pathname);
+      }
+    } else if (!isMockMode) {
+      setTransactionStatus("Please complete onboarding first");
+    }
+  }, []);
+
   // Load payment and payout methods
   useEffect(() => {
-    const stripeData = JSON.parse(localStorage.getItem("stripeData") || "{}");
-    if (!stripeData.token) return;
-
     if (isMockMode) {
       setPayoutMethods([
         {
@@ -491,76 +502,86 @@ export function PaymentDashboard() {
           card: { brand: "visa", last4: "4242", exp_month: 12, exp_year: 2025 },
         },
       ]);
-    } else {
-      const loadPaymentMethods = async () => {
-        try {
-          const response = await fetch(
-            `${import.meta.env.VITE_API_URL}/stripe/payment-methods/${
-              stripeData.token
-            }`
-          );
-          if (!response.ok) throw new Error("Failed to load payment methods");
-          const { methods } = await response.json();
-          setPaymentMethods(methods);
-        } catch (error) {
-          console.error("Payment methods error:", error);
-          setTransactionStatus("Failed to load payment methods");
-        }
-      };
-
-      const loadPayoutMethods = async () => {
-        try {
-          const response = await fetch(
-            `${import.meta.env.VITE_API_URL}/stripe/payout-methods/${
-              stripeData.token
-            }`
-          );
-          if (!response.ok) throw new Error("Failed to load payout methods");
-          const { methods, defaultMethod } = await response.json();
-          setPayoutMethods(methods);
-          if (defaultMethod) setSelectedPayoutMethod(defaultMethod.id);
-        } catch (error) {
-          console.error("Payout methods error:", error);
-          setTransactionStatus("Failed to load payout methods");
-        }
-      };
-
-      loadPaymentMethods();
-      loadPayoutMethods();
+      return;
     }
-  }, [isMockMode]);
+
+    if (!authToken) return;
+
+    const loadPaymentMethods = async () => {
+      try {
+        const response = await fetch(
+          `${import.meta.env.VITE_API_URL}/stripe/payment-methods/${authToken}`
+        );
+        if (!response.ok) throw new Error("Failed to load payment methods");
+        const { methods } = await response.json();
+        setPaymentMethods(methods);
+      } catch (error) {
+        console.error("Payment methods error:", error);
+        setTransactionStatus("Failed to load payment methods");
+        handleAuthError(error);
+      }
+    };
+
+    const loadPayoutMethods = async () => {
+      try {
+        const response = await fetch(
+          `${import.meta.env.VITE_API_URL}/stripe/payout-methods/${authToken}`
+        );
+        if (!response.ok) throw new Error("Failed to load payout methods");
+        const { methods, defaultMethod } = await response.json();
+        setPayoutMethods(methods);
+        if (defaultMethod) setSelectedPayoutMethod(defaultMethod.id);
+      } catch (error) {
+        console.error("Payout methods error:", error);
+        setTransactionStatus("Failed to load payout methods");
+        handleAuthError(error);
+      }
+    };
+
+    loadPaymentMethods();
+    loadPayoutMethods();
+  }, [isMockMode, authToken]);
+
+  const handleAuthError = (error: unknown) => {
+    if (error instanceof Error && error.message.includes("401")) {
+      localStorage.removeItem("stripeAuthToken");
+      setAuthToken(null);
+    }
+  };
 
   const refreshPaymentMethods = async () => {
-    const stripeData = JSON.parse(localStorage.getItem("stripeData") || "{}");
-    if (!stripeData.token) return;
+    if (!authToken) {
+      setTransactionStatus("Please sign in to view payment methods");
+      return;
+    }
 
     try {
       const response = await fetch(
-        `${import.meta.env.VITE_API_URL}/stripe/payment-methods/${
-          stripeData.token
-        }`
+        `${import.meta.env.VITE_API_URL}/stripe/payment-methods/${authToken}`
       );
+      if (!response.ok)
+        throw new Error(`HTTP error! status: ${response.status}`);
       const { methods } = await response.json();
-      setPaymentMethods(methods); // Updates the list of saved cards
+      setPaymentMethods(methods);
     } catch (error) {
       console.error("Failed to refresh payment methods:", error);
+      setTransactionStatus("Failed to load payment methods. Please try again.");
+      handleAuthError(error);
     }
   };
 
   const refreshWalletBalance = async () => {
-    const stripeData = JSON.parse(localStorage.getItem("stripeData") || "{}");
-    if (!stripeData.token) return;
+    if (!authToken) return;
 
     try {
       const response = await fetch(
-        `${import.meta.env.VITE_API_URL}/stripe/wallet-balance/${
-          stripeData.token
-        }`
+        `${import.meta.env.VITE_API_URL}/stripe/wallet-balance/${authToken}`
       );
       const { balance } = await response.json();
-      // If using a UserContext, update the balance here
+      // Update balance in context if needed
     } catch (error) {
       console.error("Failed to refresh balance:", error);
+      handleAuthError(error);
     }
   };
 
@@ -568,22 +589,19 @@ export function PaymentDashboard() {
     e.preventDefault();
     setTransactionStatus(null);
 
-    // Basic validation
-    if (!amount || Number(amount) <= 0) {
-      setTransactionStatus("Please enter a valid amount");
+    if (!authToken && !isMockMode) {
+      setTransactionStatus("Please complete onboarding first");
       return;
     }
 
-    const stripeData = JSON.parse(localStorage.getItem("stripeData") || "{}");
-    if (!stripeData?.token) {
-      setTransactionStatus("Authentication required. Please sign in again.");
+    if (!amount || Number(amount) <= 0) {
+      setTransactionStatus("Please enter a valid amount");
       return;
     }
 
     try {
       if (activeTab === "deposit") {
         if (showCardForm) {
-          // Add null check for Stripe
           if (!stripe || !elements) {
             throw new Error("Payment system not ready. Please try again.");
           }
@@ -600,18 +618,15 @@ export function PaymentDashboard() {
 
           setTransactionStatus(`Deposit of ${amount} ${currency} successful!`);
           setShowCardForm(false);
-
-          // Refresh payment methods - you'll need to implement this
-          await fetchPaymentMethods();
+          await refreshPaymentMethods();
         } else {
-          // Saved payment method flow
           const response = await fetch(
             `${import.meta.env.VITE_API_URL}/stripe/fund-wallet`,
             {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({
-                token: stripeData.token,
+                token: authToken,
                 amount: Number(amount),
                 currency,
               }),
@@ -619,13 +634,9 @@ export function PaymentDashboard() {
           );
 
           const data = await response.json();
-
-          if (!response.ok) {
-            throw new Error(data.message || "Funding failed");
-          }
+          if (!response.ok) throw new Error(data.message || "Funding failed");
 
           if (data.requiresAction && stripe && elements) {
-            // Handle 3D Secure authentication
             const { error: confirmationError } = await stripe.confirmPayment({
               elements,
               clientSecret: data.clientSecret,
@@ -637,7 +648,6 @@ export function PaymentDashboard() {
           setTransactionStatus(`Deposit of ${amount} ${currency} completed!`);
         }
       } else {
-        // Payout flow
         if (!selectedPayoutMethod) {
           throw new Error("Please select a payout method");
         }
@@ -648,7 +658,7 @@ export function PaymentDashboard() {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
-              token: stripeData.token,
+              token: authToken,
               amount: Number(amount),
               methodId: selectedPayoutMethod,
             }),
@@ -656,60 +666,20 @@ export function PaymentDashboard() {
         );
 
         const result = await response.json();
-
-        if (!response.ok) {
-          throw new Error(result.message || "Payout failed");
-        }
+        if (!response.ok) throw new Error(result.message || "Payout failed");
 
         setTransactionStatus(
           `Payout scheduled! Funds will arrive by ${new Date(
             result.arrivalDate
           ).toLocaleDateString()}`
         );
-
-        // Refresh wallet balance - you'll need to implement this
-        await fetchWalletBalance();
+        await refreshWalletBalance();
       }
-    } catch (err: any) {
-      setTransactionStatus(
-        err.message || "Transaction failed. Please try again."
-      );
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Transaction failed";
+      setTransactionStatus(message);
       console.error("Payment error:", err);
-    }
-  };
-
-  // Add these helper functions somewhere in your component
-  const fetchPaymentMethods = async () => {
-    const stripeData = JSON.parse(localStorage.getItem("stripeData") || "{}");
-    if (!stripeData.token) return;
-
-    try {
-      const response = await fetch(
-        `${import.meta.env.VITE_API_URL}/stripe/payment-methods/${
-          stripeData.token
-        }`
-      );
-      const { methods } = await response.json();
-      setPaymentMethods(methods);
-    } catch (error) {
-      console.error("Failed to refresh payment methods:", error);
-    }
-  };
-
-  const fetchWalletBalance = async () => {
-    const stripeData = JSON.parse(localStorage.getItem("stripeData") || "{}");
-    if (!stripeData.token) return;
-
-    try {
-      const response = await fetch(
-        `${import.meta.env.VITE_API_URL}/stripe/wallet-balance/${
-          stripeData.token
-        }`
-      );
-      const { balance } = await response.json();
-      // Update your user balance here
-    } catch (error) {
-      console.error("Failed to refresh balance:", error);
+      handleAuthError(err);
     }
   };
 
