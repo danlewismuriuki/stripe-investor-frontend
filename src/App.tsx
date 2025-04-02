@@ -50,6 +50,9 @@ const stripePromise = loadStripe(
     "pk_test_51QyysURwCZkMupwg2slyTLndKhtucw9xupDqdIwRmyikUxEVl8DSTVLALJZAmMumrlKmcUAwM4Wdb3xY8DQl23PQ00bqr2fakf"
 );
 
+// Log the Stripe public key to check if it's loaded
+console.log("Stripe Public Key:", import.meta.env.VITE_STRIPE_PUBLIC_KEY);
+
 function App() {
   return (
     <Elements stripe={stripePromise}>
