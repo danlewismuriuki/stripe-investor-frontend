@@ -907,7 +907,8 @@ export function PaymentDashboard() {
           }
 
           const response = await fetch(
-            `${import.meta.env.VITE_API_URL}/stripe/payment-intent/saved`,
+            // `${import.meta.env.VITE_API_URL}/stripe/payment-intent/saved`,
+            `${import.meta.env.VITE_API_URL}/stripe/fund-wallet`,
             {
               method: "POST",
               headers: {
@@ -952,7 +953,8 @@ export function PaymentDashboard() {
         }
 
         const response = await fetch(
-          `${import.meta.env.VITE_API_URL}/stripe/payouts`,
+          // `${import.meta.env.VITE_API_URL}/stripe/payouts`,
+          `${import.meta.env.VITE_API_URL}/stripe/create-payout`,
           {
             method: "POST",
             headers: {
@@ -1035,7 +1037,8 @@ export function PaymentDashboard() {
       }
 
       const response = await fetch(
-        `${import.meta.env.VITE_API_URL}/stripe/default-payment-method`,
+        // `${import.meta.env.VITE_API_URL}/stripe/default-payment-method`,
+        `${import.meta.env.VITE_API_URL}/stripe/set-default-payment`,
         {
           method: "POST",
           headers: {
