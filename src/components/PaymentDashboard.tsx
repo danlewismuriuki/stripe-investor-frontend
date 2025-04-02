@@ -6,9 +6,11 @@
 //   useElements,
 //   Elements,
 // } from "@stripe/react-stripe-js";
+// import { loadStripe } from "@stripe/stripe-js";
 // import {
 //   FaCreditCard,
 //   FaExchangeAlt,
+//   FaWallet,
 //   FaArrowDown,
 //   FaArrowUp,
 //   FaUniversity,
@@ -59,6 +61,22 @@
 //   const [isProcessing, setIsProcessing] = useState(false);
 //   const [clientSecret, setClientSecret] = useState<string | null>(null);
 //   const [isRefreshing, setIsRefreshing] = useState(false);
+//   const [stripeLoaded, setStripeLoaded] = useState(false);
+
+//   // Initialize Stripe
+//   useEffect(() => {
+//     const initializeStripe = async () => {
+//       try {
+//         await loadStripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY || "");
+//         setStripeLoaded(true);
+//       } catch (error) {
+//         console.error("Failed to load Stripe", error);
+//         setTransactionStatus("Failed to initialize payment system");
+//       }
+//     };
+
+//     initializeStripe();
+//   }, []);
 
 //   // Initialize auth token from URL or localStorage
 //   useEffect(() => {
@@ -71,13 +89,23 @@
 //       setAuthToken(token);
 //       if (urlToken) {
 //         localStorage.setItem("stripeAuthToken", token);
-//         // Clean URL after getting token
 //         window.history.replaceState({}, "", window.location.pathname);
 //       }
 //     } else if (!isMockMode) {
 //       setTransactionStatus("Please complete onboarding first");
 //     }
 //   }, [isMockMode]);
+
+//   // Enhanced error handler
+//   const getErrorMessage = (error: unknown): string => {
+//     if (error instanceof Error) {
+//       return error.message;
+//     }
+//     if (typeof error === "object" && error !== null && "message" in error) {
+//       return String(error.message);
+//     }
+//     return "An unknown error occurred";
+//   };
 
 //   // Load payment methods
 //   const loadPaymentMethods = async () => {
@@ -111,12 +139,14 @@
 //         }
 //       );
 
-//       if (!response.ok) throw new Error("Failed to load payment methods");
+//       if (!response.ok) {
+//         throw new Error(await response.text());
+//       }
 //       const methods = await response.json();
 //       setPaymentMethods(methods);
 //     } catch (error) {
 //       console.error("Payment methods error:", error);
-//       setTransactionStatus("Failed to load payment methods");
+//       setTransactionStatus(getErrorMessage(error));
 //       handleAuthError(error);
 //     } finally {
 //       setIsRefreshing(false);
@@ -152,13 +182,15 @@
 //         }
 //       );
 
-//       if (!response.ok) throw new Error("Failed to load payout methods");
+//       if (!response.ok) {
+//         throw new Error(await response.text());
+//       }
 //       const { methods, defaultMethod } = await response.json();
 //       setPayoutMethods(methods);
-//       if (defaultMethod) setSelectedPayoutMethod(defaultMethod.id);
+//       if (defaultMethod) setSelectedPayoutMethod(defaultMethod);
 //     } catch (error) {
 //       console.error("Payout methods error:", error);
-//       setTransactionStatus("Failed to load payout methods");
+//       setTransactionStatus(getErrorMessage(error));
 //       handleAuthError(error);
 //     } finally {
 //       setIsRefreshing(false);
@@ -172,7 +204,8 @@
 //   }, [authToken]);
 
 //   const handleAuthError = (error: unknown) => {
-//     if (error instanceof Error && error.message.includes("401")) {
+//     const errorMessage = getErrorMessage(error);
+//     if (errorMessage.includes("401") || errorMessage.includes("Unauthorized")) {
 //       localStorage.removeItem("stripeAuthToken");
 //       setAuthToken(null);
 //       setTransactionStatus("Session expired. Please sign in again.");
@@ -209,7 +242,9 @@
 //         }
 //       );
 
-//       if (!response.ok) throw new Error("Failed to initialize payment form");
+//       if (!response.ok) {
+//         throw new Error(await response.text());
+//       }
 //       const { clientSecret } = await response.json();
 
 //       if (!clientSecret) {
@@ -220,7 +255,7 @@
 //       setShowCardForm(true);
 //     } catch (error) {
 //       console.error("Error creating setup intent:", error);
-//       setTransactionStatus("Failed to initialize payment form");
+//       setTransactionStatus(getErrorMessage(error));
 //       handleAuthError(error);
 //     } finally {
 //       setIsProcessing(false);
@@ -261,8 +296,9 @@
 //           );
 
 //           if (stripeError) throw stripeError;
-//           if (!setupIntent?.payment_method)
+//           if (!setupIntent?.payment_method) {
 //             throw new Error("Payment method setup failed");
+//           }
 
 //           // In mock mode, skip API call
 //           if (isMockMode) {
@@ -288,8 +324,9 @@
 //             }
 //           );
 
-//           if (!attachResponse.ok)
-//             throw new Error("Failed to save payment method");
+//           if (!attachResponse.ok) {
+//             throw new Error(await attachResponse.text());
+//           }
 
 //           setTransactionStatus("Payment method added successfully!");
 //           setShowCardForm(false);
@@ -319,13 +356,15 @@
 //               body: JSON.stringify({
 //                 amount: Number(amount),
 //                 paymentMethodId: selectedPaymentMethod,
-//                 currency,
+//                 currency: currency.toLowerCase(),
 //               }),
 //             }
 //           );
 
 //           const data = await response.json();
-//           if (!response.ok) throw new Error(data.message || "Payment failed");
+//           if (!response.ok) {
+//             throw new Error(data.message || "Payment failed");
+//           }
 
 //           if (data.requiresAction && stripe) {
 //             const { error: confirmationError } = await stripe.confirmPayment({
@@ -369,7 +408,9 @@
 //         );
 
 //         const result = await response.json();
-//         if (!response.ok) throw new Error(result.message || "Payout failed");
+//         if (!response.ok) {
+//           throw new Error(result.message || "Payout failed");
+//         }
 
 //         setTransactionStatus(
 //           `Payout scheduled! Funds will arrive by ${new Date(
@@ -378,8 +419,8 @@
 //         );
 //         await loadPayoutMethods();
 //       }
-//     } catch (err: unknown) {
-//       const message = err instanceof Error ? err.message : "Transaction failed";
+//     } catch (err) {
+//       const message = getErrorMessage(err);
 //       setTransactionStatus(message);
 //       console.error("Payment error:", err);
 //       handleAuthError(err);
@@ -399,22 +440,28 @@
 //       }
 
 //       const response = await fetch(
-//         `${import.meta.env.VITE_API_URL}/stripe/payment-methods/${methodId}`,
+//         `${import.meta.env.VITE_API_URL}/stripe/remove-payment-method`,
 //         {
-//           method: "DELETE",
+//           method: "POST",
 //           headers: {
 //             Authorization: `Bearer ${authToken}`,
+//             "Content-Type": "application/json",
 //           },
+//           body: JSON.stringify({
+//             paymentMethodId: methodId,
+//           }),
 //         }
 //       );
 
-//       if (!response.ok) throw new Error("Failed to remove payment method");
+//       if (!response.ok) {
+//         throw new Error(await response.text());
+//       }
 
 //       setTransactionStatus("Payment method removed");
 //       await loadPaymentMethods();
 //     } catch (error) {
 //       console.error("Error removing payment method:", error);
-//       setTransactionStatus("Failed to remove payment method");
+//       setTransactionStatus(getErrorMessage(error));
 //       handleAuthError(error);
 //     } finally {
 //       setIsProcessing(false);
@@ -450,28 +497,27 @@
 //         }
 //       );
 
-//       if (!response.ok) throw new Error("Failed to set default payment method");
+//       if (!response.ok) {
+//         throw new Error(await response.text());
+//       }
 
 //       setTransactionStatus("Default payment method updated");
 //       await loadPaymentMethods();
 //     } catch (error) {
 //       console.error("Error setting default method:", error);
-//       setTransactionStatus("Failed to update default payment method");
+//       setTransactionStatus(getErrorMessage(error));
 //       handleAuthError(error);
 //     } finally {
 //       setIsProcessing(false);
 //     }
 //   };
 
-//   if (!stripe || !elements) {
+//   if (!stripeLoaded) {
 //     return (
 //       <div className="min-h-screen bg-gray-50 p-4 md:p-8 flex items-center justify-center">
 //         <div className="text-center">
 //           <FaSpinner className="animate-spin text-4xl text-indigo-600 mb-4 mx-auto" />
 //           <p className="text-lg">Loading payment system...</p>
-//           {transactionStatus && (
-//             <p className="text-red-500 mt-2">{transactionStatus}</p>
-//           )}
 //         </div>
 //       </div>
 //     );
@@ -864,6 +910,9 @@ interface PaymentMethod {
 
 export function PaymentDashboard() {
   const { user, isMockMode } = useUser();
+  const stripePromise = loadStripe(
+    import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY || ""
+  );
   const stripe = useStripe();
   const elements = useElements();
 
@@ -884,12 +933,13 @@ export function PaymentDashboard() {
   const [clientSecret, setClientSecret] = useState<string | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [stripeLoaded, setStripeLoaded] = useState(false);
+  const [isPaymentElementReady, setIsPaymentElementReady] = useState(false);
 
   // Initialize Stripe
   useEffect(() => {
     const initializeStripe = async () => {
       try {
-        await loadStripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY || "");
+        await stripePromise;
         setStripeLoaded(true);
       } catch (error) {
         console.error("Failed to load Stripe", error);
@@ -1044,13 +1094,10 @@ export function PaymentDashboard() {
       setIsProcessing(true);
       setTransactionStatus(null);
 
-      if (!stripe) {
-        throw new Error("Payment system not ready");
-      }
-
       if (isMockMode) {
         setClientSecret("mock_client_secret");
         setShowCardForm(true);
+        setIsPaymentElementReady(false);
         return;
       }
 
@@ -1075,6 +1122,7 @@ export function PaymentDashboard() {
 
       setClientSecret(clientSecret);
       setShowCardForm(true);
+      setIsPaymentElementReady(false);
     } catch (error) {
       console.error("Error creating setup intent:", error);
       setTransactionStatus(getErrorMessage(error));
@@ -1536,7 +1584,15 @@ export function PaymentDashboard() {
                       Payment Details
                     </label>
                     <div className="p-4 border border-gray-300 rounded-lg">
-                      <Elements stripe={stripe} options={{ clientSecret }}>
+                      <Elements
+                        stripe={stripePromise}
+                        options={{
+                          clientSecret,
+                          appearance: {
+                            theme: "stripe",
+                          },
+                        }}
+                      >
                         <PaymentElement
                           options={{
                             layout: "tabs",
@@ -1546,6 +1602,7 @@ export function PaymentDashboard() {
                               },
                             },
                           }}
+                          onReady={() => setIsPaymentElementReady(true)}
                         />
                       </Elements>
                     </div>
@@ -1554,6 +1611,7 @@ export function PaymentDashboard() {
                       onClick={() => {
                         setShowCardForm(false);
                         setClientSecret(null);
+                        setIsPaymentElementReady(false);
                       }}
                       className="mt-2 text-gray-600 text-sm"
                       disabled={isProcessing}
@@ -1633,7 +1691,9 @@ export function PaymentDashboard() {
                 isProcessing ||
                 isRefreshing ||
                 (activeTab === "withdraw" && !selectedPayoutMethod) ||
-                (activeTab === "deposit" && showCardForm && !stripe) ||
+                (activeTab === "deposit" &&
+                  showCardForm &&
+                  (!stripe || !isPaymentElementReady)) ||
                 (activeTab === "deposit" &&
                   !showCardForm &&
                   !selectedPaymentMethod)
